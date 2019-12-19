@@ -55,6 +55,7 @@ class Markov():
             q_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
             count += 1
 
+
         q = q_df.values
         #print('\n', q, q.shape, '\n')
         #print(q_df.sum(axis=1))
@@ -80,7 +81,6 @@ class Markov():
 
     def get_probability_matrices(self):
         self.prob_transition_matrices = {}
-
         for user, matrix in self.transition_matrices.items():
             logger.info('Creating transition matrix for user {}'.format(user))
             S = matrix.tolist()
