@@ -45,9 +45,24 @@ This is particular useful if one of your states is a (meaningful) absorbing stat
 
 However, when one does not have an absorbing state --- for example when examining the weather (which can only be "sunny" or "rainy") --- it is also possible to use the Timestamp column to detect sequence patterns in the data. Again, strings that do not sort in chronological order (e.g., "16-7-1997") would lead to incorrect results.
 
+```
+from df2markov import SAMPLEDATA, Markov
+
+mymodel = Markov(SAMPLEDATA)
+```
+
 ### Sequential patterns per user:
 
-Next, df2markov organizes the data into meaningful sequential patterns. By creating transition matrices, df2markov can create a transition probability matrix: the likelihood of transitioning between any two states (get_probability_matrices()), but is also able to visualize the transitions (plot()):
+Next, df2markov organizes the data into meaningful sequential patterns. By creating transition matrices, df2markov can create a transition probability matrix: the likelihood of transitioning between any two states:
+
+```
+mymodel.get_probability_matrices()      
+```
+
+It is also able to visualize the transitions:
+```
+mymodel.plot()      
+```
 
 Convert to common graphic formats:
 ```
@@ -55,7 +70,11 @@ dot -Tpng 1_markov_topic.dot > 1_markov_topic.png
 ```
 
 ### Aggregate sequential patterns:
-Finally, df2markov is able to aggregate the data from all users in the data set to create an overall (a) percentage matrix (0-100 percent), (b) probability matrix (0-1), or (c) frequency matrix.  
+Finally, df2markov is able to aggregate the data from all users in the data set to create an overall (a) percentage matrix (0-100 percent), (b) probability matrix (0-1), or (c) frequency matrix:
+
+```
+mymodel.plot(how = "frequency")      
+```
 
 ## Citation
 
