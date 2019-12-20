@@ -61,22 +61,22 @@ class Markov():
 
         for user, group in df.groupby(user_col):
 
-            S = [[0]*self.number_of_states for _ in range(self.number_of_states)]
-            S = np.matrix(S)
+            matrix_states = [[0]*self.number_of_states for _ in range(self.number_of_states)]
+            matrix_states = np.matrix(matrix_states)
             data0 = df[df[user_col] == user]
             LOGGER.info("Currently creating a transition matrix for respondent: {}".format(user))
             for session, group in df.groupby(session_col):
                 data00 = data0.loc[data0[session_col] == session]
                 transitions = data00[state_col].tolist()
-                def rank(c):
-                    return ord(c) - ord('A')
-                T = [rank(c) for c in transitions]
-                M = [[0]*self.number_of_states for _ in range(self.number_of_states)]
-                for (i, j) in zip(T, T[1:]):
-                    M[i][j] += 1
-                M = np.matrix(M)
-                S = S+M
-            self.transition_matrices[user] = S
+                def rank(state_value):
+                    return ord(state_value) - ord('A')
+                trans = [rank(state_value) for state_value in transitions]
+                trans_matrix = [[0]*self.number_of_states for _ in range(self.number_of_states)]
+                for (i, j) in zip(trans, trans[1:]):
+                    trans_matrix[i][j] += 1
+                trans_matrix = np.matrix(trans_matrix)
+                matrix_states = matrix_states+trans_matrix
+            self.transition_matrices[user] = matrix_states
 
 
     def plot(self, outputdirectory, user):
@@ -91,37 +91,36 @@ class Markov():
         user : str, int, etc.
              The user ID
         '''
-        q_df = pd.DataFrame(columns=self.states, index=self.states)
+        states_df = pd.DataFrame(columns=self.states, index=self.states)
 
         count = 0
 
         while count < self.number_of_states:
-            q_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
+            states_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
             count += 1
 
-
-        q = q_df.values
-        def _get_markov_edges(Q):
+        #q = states_df.values
+        def _get_markov_edges(state_columns):
             edges = {}
-            for col in Q.columns:
-                for idx in Q.index:
-                    edges[(idx, col)] = Q.loc[idx, col]
+            for col in state_columns.columns:
+                for idx in state_columns.index:
+                    edges[(idx, col)] = state_columns.loc[idx, col]
             return edges
-        edges_wts = _get_markov_edges(q_df)
-        G = nx.MultiDiGraph()
-        G.add_nodes_from(self.states)
-        for k, v in edges_wts.items():
+        edges_wts = _get_markov_edges(states_df)
+        graph_object = nx.MultiDiGraph()
+        graph_object.add_nodes_from(self.states)
+        for k, weight in edges_wts.items():
             tmp_origin, tmp_destination = k[0], k[1]
-            if v > 0:
-                G.add_edge(tmp_origin, tmp_destination, weight=v, label=v)
-        pos = nx.drawing.nx_pydot.graphviz_layout(G, prog='dot')
-        nx.draw_networkx(G, pos)
-        edge_labels = {(n1, n2):d['label'] for n1, n2, d in G.edges(data=True)}
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+            if weight > 0:
+                graph_object.add_edge(tmp_origin, tmp_destination, weight=weight, label=weight)
+        pos = nx.drawing.nx_pydot.graphviz_layout(graph_object, prog='dot')
+        nx.draw_networkx(graph_object, pos)
+        edge_labels = {(n1, n2):d['label'] for n1, n2, d in graph_object.edges(data=True)}
+        nx.draw_networkx_edge_labels(graph_object, pos, edge_labels=edge_labels)
         if not os.path.exists(outputdirectory):
             os.mkdir(outputdirectory)
         filename = os.path.join(outputdirectory, '{}_probabilities.dot'.format(user))
-        self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(G, filename)
+        self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(graph_object, filename)
 
     def get_probability_matrices(self):
         '''
@@ -130,17 +129,18 @@ class Markov():
         '''
         self.prob_transition_matrices = {}
         for user, matrix in self.transition_matrices.items():
-            LOGGER.info('Currently creating a probability transition matrix for respondent {}'.format(user))
-            S = matrix.tolist()
-            for row in S:
-                n = sum(row)
-                if n > 0:
+            LOGGER.info("Currently creating a probability "
+                        " transition matrix for respondent {}".format(user))
+            matrix_states = matrix.tolist()
+            for row in matrix_states:
+                number_row = sum(row)
+                if number_row > 0:
                     row[:] = [f/sum(row) for f in row]
             #for row in S:
                 #print(row)
-            S = np.matrix(S)
-            S = np.matrix.round(S, 3)
-            self.prob_transition_matrices[user] = S
+            matrix_states = np.matrix(matrix_states)
+            matrix_states = np.matrix.round(matrix_states, 3)
+            self.prob_transition_matrices[user] = matrix_states
 
     def aggregate(self, how='percentage'):
         '''
@@ -159,7 +159,6 @@ class Markov():
         An aggregated matrix over all users.
         '''
         LOGGER.info('Currently aggregating the probability transition matrix for all respondents')
-     
         aggregate_matrix = np.zeros((self.number_of_states, self.number_of_states))
 
 
@@ -172,27 +171,31 @@ class Markov():
                 aggregate_matrix[i, j] = np.mean([matrix[i, j] for matrix in self.prob_transition_matrices.values()])
 
         elif how == 'frequency':
-           for i,j in np.ndindex(aggregate_matrix.shape):
+            for i, j in np.ndindex(aggregate_matrix.shape):
                 aggregate_matrix[i, j] = np.sum([matrix[i, j] for matrix in self.transition_matrices.values()])
         else:
-            LOGGER.error('You need to specify the aggregation function as "percentage", "probability", or "frequency"')
-            
+            LOGGER.error('You need to specify the aggregation function as "percentage"'
+                         ", 'probability', or 'frequency'")
         return aggregate_matrix
 
-
-SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
-                                    "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
-                                    "Anna", "Anna", "Anna", "Anna", "Bob", "Bob", "Bob", "Bob", "Bob",
-                                    "Bob", "Bob", "Bob", "Paul", "Paul", "Paul", "Paul", "Paul", "Paul",
-                                    "Paul", "Paul", "Paul", "Paul", "Paul", "Paul", "Paul", "Paul",
-                                    "Paul", "Paul", "Paul", "Paul", "Paul", "Paul", "Karen", "Karen",
-                                    "Karen", "Karen", "Karen", "Eric", "Eric", "Eric", "Eric", "Eric",
-                                    "Eric", "Eric", "Eric", "Eric", "Eric", "Eric", "Eric", "Eric",
-                                    "Eric", "Eric", "Eric", "Eric", "Eric", "Eric", "Eric", "Judith",
-                                    "Judith", "Judith", "Judith", "Judith", "Judith", "Judith",
-                                    "Judith", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim",
-                                    "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim",
-                                    "Tim", "Sandra", "Sandra", "Sandra", "Sandra", "Sandra"],
+SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
+                                    "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
+                                    "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
+                                    "Anna", "Anna", "Bob", "Bob", "Bob", "Bob", "Bob",
+                                    "Bob", "Bob", "Bob", "Paul", "Paul", "Paul",
+                                    "Paul", "Paul", "Paul", "Paul", "Paul", "Paul",
+                                    "Paul", "Paul", "Paul", "Paul", "Paul", "Paul",
+                                    "Paul", "Paul", "Paul", "Paul", "Paul", "Karen",
+                                    "Karen", "Karen", "Karen", "Karen", "Eric", "Eric",
+                                    "Eric", "Eric", "Eric", "Eric", "Eric", "Eric",
+                                    "Eric", "Eric", "Eric", "Eric", "Eric", "Eric",
+                                    "Eric", "Eric", "Eric", "Eric", "Eric", "Eric",
+                                    "Judith", "Judith", "Judith", "Judith", "Judith",
+                                    "Judith", "Judith", "Judith", "Tim", "Tim", "Tim",
+                                    "Tim", "Tim", "Tim", "Tim", "Tim", "Tim",
+                                    "Tim", "Tim", "Tim", "Tim", "Tim", "Tim", "Tim",
+                                    "Tim", "Tim", "Tim", "Tim", "Sandra", "Sandra",
+                                    "Sandra", "Sandra", "Sandra"],
                            'session': [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                                        2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2,
                                        1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
@@ -213,31 +216,56 @@ SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Ann
                                      'C', 'D', 'D', 'B', 'C', 'C', 'D', 'A', 'F',
                                      'A', 'B', 'A', 'C', 'F', 'E', 'E', 'E', 'E',
                                      'B', 'F', 'E', 'E', 'B', 'D', 'F'],
-                           'timestamp': ["2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01", "2019-12-01 08:27:02",
-                                    "2019-12-01 08:27:03", "2019-12-01 08:27:04", "2019-12-01 08:27:05", "2019-12-01 08:27:06",
-                                    "2019-12-01 08:27:07", "2019-12-01 08:27:08", "2019-12-01 08:27:09", "2019-12-01 08:27:10", 
-                                    "2019-12-01 08:27:11", "2019-12-01 08:27:12", "2019-12-01 08:27:13", "2019-12-01 08:27:14",
-                                    "2019-12-01 08:29:15", "2019-12-01 10:29:13", "2019-12-01 10:29:14", "2019-12-01 10:29:15",
-                                    "2019-12-01 08:27:01", "2019-12-01 08:27:02", "2019-12-01 08:27:03", "2019-12-01 08:27:04",
-                                    "2019-12-01 10:29:13", "2019-12-01 10:29:14", "2019-12-01 10:29:15", "2019-12-01 10:29:16",
-                                    "2019-12-01 08:27:01", "2019-12-01 08:27:02", "2019-12-01 08:27:03", "2019-12-01 08:27:04",
-                                    "2019-12-01 08:27:05", "2019-12-01 08:27:06", "2019-12-01 08:27:07", "2019-12-01 08:27:08",
-                                    "2019-12-01 08:27:09", "2019-12-03 08:27:06", "2019-12-03 08:27:07", "2019-12-03 08:27:08",
-                                    "2019-12-03 08:27:09", "2019-12-03 08:27:11", "2019-12-04 08:27:06", "2019-12-04 08:27:07",
-                                    "2019-12-04 08:27:08", "2019-12-04 08:27:09", "2019-12-04 08:27:11", "2019-12-04 08:27:11",
-                                    "2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01", "2019-12-01 08:27:02",
-                                    "2019-12-01 08:27:03", "2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01",
-                                    "2019-12-01 08:27:02", "2019-12-01 08:27:03", "2019-12-01 08:27:04", "2019-12-01 08:27:05",
-                                    "2019-12-01 08:27:06", "2019-12-01 08:27:07", "2019-12-01 08:27:08", "2019-12-01 08:27:09",
-                                    "2019-12-01 08:27:10", "2019-12-01 08:27:11", "2019-12-01 08:27:12", "2019-12-01 08:27:13",
-                                    "2019-12-01 08:27:14", "2019-12-01 08:29:15", "2019-12-01 10:29:13", "2019-12-01 10:29:14",
-                                    "2019-12-01 10:29:15", "2019-12-01 08:27:01", "2019-12-01 08:27:02", "2019-12-01 08:27:03",
-                                    "2019-12-01 08:27:04", "2019-12-01 10:29:13", "2019-12-01 10:29:14", "2019-12-01 10:29:15",
-                                    "2019-12-01 10:29:16", "2019-12-01 08:27:01", "2019-12-01 08:27:02", "2019-12-01 08:27:03",
-                                    "2019-12-01 08:27:04", "2019-12-01 08:27:05", "2019-12-01 08:27:06", "2019-12-01 08:27:07",
-                                    "2019-12-01 08:27:08", "2019-12-01 08:27:09", "2019-12-03 08:27:06", "2019-12-03 08:27:07",
-                                    "2019-12-03 08:27:08", "2019-12-03 08:27:09", "2019-12-03 08:27:11", "2019-12-04 08:27:06",
-                                    "2019-12-04 08:27:07", "2019-12-04 08:27:08", "2019-12-04 08:27:09", "2019-12-04 08:27:11",
-                                    "2019-12-04 08:27:11", "2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01",
-                                    "2019-12-01 08:27:02", "2019-12-01 08:27:03"]})
-                                    
+                           'timestamp': ["2019-12-01 07:27:01", "2019-12-01 07:27:02",
+                                         "2019-12-01 08:27:01", "2019-12-01 08:27:02",
+                                         "2019-12-01 08:27:03", "2019-12-01 08:27:04",
+                                         "2019-12-01 08:27:05", "2019-12-01 08:27:06",
+                                         "2019-12-01 08:27:07", "2019-12-01 08:27:08",
+                                         "2019-12-01 08:27:09", "2019-12-01 08:27:10",
+                                         "2019-12-01 08:27:11", "2019-12-01 08:27:12",
+                                         "2019-12-01 08:27:13", "2019-12-01 08:27:14",
+                                         "2019-12-01 08:29:15", "2019-12-01 10:29:13",
+                                         "2019-12-01 10:29:14", "2019-12-01 10:29:15",
+                                         "2019-12-01 08:27:01", "2019-12-01 08:27:02",
+                                         "2019-12-01 08:27:03", "2019-12-01 08:27:04",
+                                         "2019-12-01 10:29:13", "2019-12-01 10:29:14",
+                                         "2019-12-01 10:29:15", "2019-12-01 10:29:16",
+                                         "2019-12-01 08:27:01", "2019-12-01 08:27:02",
+                                         "2019-12-01 08:27:03", "2019-12-01 08:27:04",
+                                         "2019-12-01 08:27:05", "2019-12-01 08:27:06",
+                                         "2019-12-01 08:27:07", "2019-12-01 08:27:08",
+                                         "2019-12-01 08:27:09", "2019-12-03 08:27:06",
+                                         "2019-12-03 08:27:07", "2019-12-03 08:27:08",
+                                         "2019-12-03 08:27:09", "2019-12-03 08:27:11",
+                                         "2019-12-04 08:27:06", "2019-12-04 08:27:07",
+                                         "2019-12-04 08:27:08", "2019-12-04 08:27:09",
+                                         "2019-12-04 08:27:11", "2019-12-04 08:27:11",
+                                         "2019-12-01 07:27:01", "2019-12-01 07:27:02",
+                                         "2019-12-01 08:27:01", "2019-12-01 08:27:02",
+                                         "2019-12-01 08:27:03", "2019-12-01 07:27:01",
+                                         "2019-12-01 07:27:02", "2019-12-01 08:27:01",
+                                         "2019-12-01 08:27:02", "2019-12-01 08:27:03",
+                                         "2019-12-01 08:27:04", "2019-12-01 08:27:05",
+                                         "2019-12-01 08:27:06", "2019-12-01 08:27:07",
+                                         "2019-12-01 08:27:08", "2019-12-01 08:27:09",
+                                         "2019-12-01 08:27:10", "2019-12-01 08:27:11",
+                                         "2019-12-01 08:27:12", "2019-12-01 08:27:13",
+                                         "2019-12-01 08:27:14", "2019-12-01 08:29:15",
+                                         "2019-12-01 10:29:13", "2019-12-01 10:29:14",
+                                         "2019-12-01 10:29:15", "2019-12-01 08:27:01",
+                                         "2019-12-01 08:27:02", "2019-12-01 08:27:03",
+                                         "2019-12-01 08:27:04", "2019-12-01 10:29:13",
+                                         "2019-12-01 10:29:14", "2019-12-01 10:29:15",
+                                         "2019-12-01 10:29:16", "2019-12-01 08:27:01",
+                                         "2019-12-01 08:27:02", "2019-12-01 08:27:03",
+                                         "2019-12-01 08:27:04", "2019-12-01 08:27:05",
+                                         "2019-12-01 08:27:06", "2019-12-01 08:27:07",
+                                         "2019-12-01 08:27:08", "2019-12-01 08:27:09",
+                                         "2019-12-03 08:27:06", "2019-12-03 08:27:07",
+                                         "2019-12-03 08:27:08", "2019-12-03 08:27:09",
+                                         "2019-12-03 08:27:11", "2019-12-04 08:27:06",
+                                         "2019-12-04 08:27:07", "2019-12-04 08:27:08",
+                                         "2019-12-04 08:27:09", "2019-12-04 08:27:11",
+                                         "2019-12-04 08:27:11", "2019-12-01 07:27:01",
+                                         "2019-12-01 07:27:02", "2019-12-01 08:27:01",
+                                         "2019-12-01 08:27:02", "2019-12-01 08:27:03"]})
