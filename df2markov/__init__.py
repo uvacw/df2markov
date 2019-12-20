@@ -1,24 +1,48 @@
 '''
 A simple way to create marov chains from data frames
 '''
+import logging
+import os
 import pandas as pd
 import numpy as np
-import logging
 import networkx as nx
 import pydot
-import os
+
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-# TODO : sessie optioneel maken
-
-# TODO : setup.py opzetten,  docstrings,  pylint
-
-
 class Markov():
-    '''some docstring'''
-    def __init__(self, df, state_col="state", date_col="date", user_col="user",
+    '''
+    A Markov chain based on a dataframe with users, timestamps, and states.
+
+    Parameters:
+    -----------
+    df : pandas Dataframe
+         Dataframe with input data
+    state_col : str
+         The column name of the column containing the state
+    timestamp_col : str
+         The column name of the column containing the timetamp.
+         The column must be sortable in a cronological order.
+    session_col : str
+         The column name of the column containing a session ID.
+    user_col : str
+         The column name of the column containing a user ID.
+    sort : Bool
+         If set to False, sorting of the timestamp column is skipped.
+
+    Attributes:
+    -----------
+    number_of_states : int
+         The number of states in the state space.
+    states : list
+         The names of all states (i.e., the state space)
+    transition_matrices: dict
+         A dict with user ids as keys, and their individual transition
+         matrices as values.
+    '''
+    def __init__(self, df, state_col="state", timestamp_col="timestamp", user_col="user",
                  session_col="session", sort=True):
         self.number_of_states = df[state_col].nunique()
 
@@ -26,15 +50,15 @@ class Markov():
 
         self.states = df[state_col].unique()
 
-        if sort:      
-            df = df.sort_values(by=[date_col])
+        if sort:
+            df = df.sort_values(by=[timestamp_col])
 
         else:
             LOGGER.info('You specified that you do *not* want to let df2markov sort the '
-                        'date column. We hope that you know what you are doing and made '
+                        'timestamp column. We hope that you know what you are doing and made '
                         'sure that the column is in chronological order. '
                         'Otherwise, the results will be wrong.')
-                
+
         for user, group in df.groupby(user_col):
 
             S = [[0]*self.number_of_states for _ in range(self.number_of_states)]
@@ -56,6 +80,17 @@ class Markov():
 
 
     def plot(self, outputdirectory, user):
+        '''
+        Creates a dot file with a graphic representation of transition
+        probabilities for a given user.
+
+        Parameters
+        ----------
+        outputdir : str
+             Directory in which to store the plot.
+        user : str, int, etc.
+             The user ID
+        '''
         q_df = pd.DataFrame(columns=self.states, index=self.states)
 
         count = 0
@@ -77,7 +112,7 @@ class Markov():
         G.add_nodes_from(self.states)
         for k, v in edges_wts.items():
             tmp_origin, tmp_destination = k[0], k[1]
-            if v>0:
+            if v > 0:
                 G.add_edge(tmp_origin, tmp_destination, weight=v, label=v)
         pos = nx.drawing.nx_pydot.graphviz_layout(G, prog='dot')
         nx.draw_networkx(G, pos)
@@ -89,6 +124,10 @@ class Markov():
         self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(G, filename)
 
     def get_probability_matrices(self):
+        '''
+        Calculates probability matrices for all users based on their transition
+        matrices. Results are stored in a new attribute, prob_transition_matrices.
+        '''
         self.prob_transition_matrices = {}
         for user, matrix in self.transition_matrices.items():
             LOGGER.info('Currently creating a probability transition matrix for respondent {}'.format(user))
@@ -103,23 +142,38 @@ class Markov():
             S = np.matrix.round(S, 3)
             self.prob_transition_matrices[user] = S
 
-    def aggregate(self, how = 'percentage'):
+    def aggregate(self, how='percentage'):
+        '''
+        Aggregates the user-specific Markov chains.
+
+        Parameters
+        ----------
+        how : {'percentage' | 'probability' | 'frequency'}
+            Specifies how to aggregate over all users.
+            'probability' takes the mean of the individual probabilities.
+            'percentage' does the same, but multiplies by 100.
+            'frequency' sums the individual transitions in absolute numbers.
+
+        Returns
+        -------
+        An aggregated matrix over all users.
+        '''
         LOGGER.info('Currently aggregating the probability transition matrix for all respondents')
      
         aggregate_matrix = np.zeros((self.number_of_states, self.number_of_states))
 
 
         if how == 'percentage':
-            for i,j in np.ndindex(aggregate_matrix.shape):
-                aggregate_matrix[i,j] = np.mean([matrix[i,j] for matrix in self.prob_transition_matrices.values()]) * 100
+            for i, j in np.ndindex(aggregate_matrix.shape):
+                aggregate_matrix[i, j] = np.mean([matrix[i, j] for matrix in self.prob_transition_matrices.values()]) * 100
 
         elif how == 'probability':
-            for i,j in np.ndindex(aggregate_matrix.shape):
-                aggregate_matrix[i,j] = np.mean([matrix[i,j] for matrix in self.prob_transition_matrices.values()])
+            for i, j in np.ndindex(aggregate_matrix.shape):
+                aggregate_matrix[i, j] = np.mean([matrix[i, j] for matrix in self.prob_transition_matrices.values()])
 
         elif how == 'frequency':
            for i,j in np.ndindex(aggregate_matrix.shape):
-                aggregate_matrix[i,j] = np.sum([matrix[i,j] for matrix in self.transition_matrices.values()])
+                aggregate_matrix[i, j] = np.sum([matrix[i, j] for matrix in self.transition_matrices.values()])
         else:
             LOGGER.error('You need to specify the aggregation function as "percentage", "probability", or "frequency"')
             
@@ -159,7 +213,7 @@ SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Ann
                                      'C', 'D', 'D', 'B', 'C', 'C', 'D', 'A', 'F',
                                      'A', 'B', 'A', 'C', 'F', 'E', 'E', 'E', 'E',
                                      'B', 'F', 'E', 'E', 'B', 'D', 'F'],
-                           'date': ["2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01", "2019-12-01 08:27:02",
+                           'timestamp': ["2019-12-01 07:27:01", "2019-12-01 07:27:02", "2019-12-01 08:27:01", "2019-12-01 08:27:02",
                                     "2019-12-01 08:27:03", "2019-12-01 08:27:04", "2019-12-01 08:27:05", "2019-12-01 08:27:06",
                                     "2019-12-01 08:27:07", "2019-12-01 08:27:08", "2019-12-01 08:27:09", "2019-12-01 08:27:10", 
                                     "2019-12-01 08:27:11", "2019-12-01 08:27:12", "2019-12-01 08:27:13", "2019-12-01 08:27:14",
