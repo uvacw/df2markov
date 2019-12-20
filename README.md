@@ -51,12 +51,12 @@ from df2markov import SAMPLEDATA, Markov
 
 ### Sequential patterns per user:
 
-Next, df2markov organizes the data into meaningful sequential patterns:
+By creating transition matrices, df2markov organizes the data into meaningful sequential patterns:
 ```
 mymodel = Markov(SAMPLEDATA)
 ```
 
-By creating transition matrices, df2markov can create a transition probability matrix: the likelihood of transitioning between any two states:
+Next, df2markov can create a transition probability matrix: the likelihood of transitioning between any two states:
 
 ```
 mymodel.get_probability_matrices()      
