@@ -11,7 +11,7 @@ You can either install df2markov from this github repository, or simply install 
 pip install df2markov
 ```
 
-For (optional) plotting, we create [DOT files](https://en.wikipedia.org/wiki/DOT_(graph_description_language)), which can then be converted into various output formats, such as PNG or PS. To make use of this, the `dot` command from [Graphviz](http://graphviz.org) needs to b e available on your system. On Ubuntu, you can install it via
+For (optional) plotting, we create [DOT files](https://en.wikipedia.org/wiki/DOT_(graph_description_language)), which can then be converted into various output formats, such as PNG or PS. To make use of this, the `dot` command from [Graphviz](http://graphviz.org) needs to be available on your system. On Ubuntu, you can install it via
 
 ```
 sudo apt install graphviz
@@ -28,28 +28,34 @@ As input, df2markov expects your data to be (roughly) organized like this:
 | ------------- | ------------- |------------- | ------------- |
 | 2019-2-1 13:44:21  | 1  |  Anna   |   C |
 | 2019-2-1 13:44:45  | 1  |  Anna   |   A |
+| 2019-2-1 13:44:59  | 1  |  Anna   |   A |
+| 2019-2-1 13:46:05  | 1  |  Anna   |   F |
+| 2019-2-1 17:46:05  | 2  |  Anna   |   A |
+| 2019-2-1 17:46:47  | 2  |  Anna   |   F |
 | 2019-2-1 13:44:22  | 1  |  Bob    |   D |
+| 2019-2-1 13:45:38  | 1  |  Bob    |   D |
+| 2019-2-1 13:46:01  | 1  |  Bob    |   F |
 
 df2markov is relatively flexible and accepts different data types in the column of the table: In principle, all columns accept various data types such as integers, floats, strings. 
-The only restriction is that the timestamp must be *sortable* in a meaningful way: A simple integer (with increasing values) is fine, as are datetime objects or strings in, for example, ISO 8601 format ("1997-07-16T19:20"). Strings that do not sort in chronical order (e.g., "16-7-1997") would lead to incorrect results.
+The only restriction is that the timestamp must be *sortable* in a meaningful way: A simple integer (with increasing values) is fine, as are datetime objects or strings in, for example, ISO 8601 format ("1997-07-16T19:20"). Strings that do not sort in chronological order (e.g., "16-7-1997") would lead to incorrect results.
 
+The session column is optional: it allows you to group data into sessions, such as a web browsing session. For instance, if a user visits website B four hours after visiting website A, you may not want to consider this as a transition.
 
-The session column is optional: it allows you to group data into sessions, such as a web browsing session. For instance, if a user visits website B four hours after visiting website A, you may not want to consider this as a transition
+This is particular useful if one of your states is a (meaningful) absorbing state, such as 'End of Web session'. In that case, one should add a final absorbing state to every session representing the exit point (i.e., a state once entered, cannot be left). In the example, this state is called 'F'. 
 
-This is particular useful if one of your states is a (meaningful) absorbing state, such as 'END-OF-WEBBROWSING-SESSION'. 
+However, when one does not have an absorbing state --- for example when examining the weather (which can only be "sunny" or "rainy") --- it is also possible to use the Timestamp column to detect sequence patterns in the data. Again, strings that do not sort in chronological order (e.g., "16-7-1997") would lead to incorrect results.
 
+### Sequential patterns per user:
 
-absorbing state
-
-[IETS ZEGGEN OVER SESSION]
-
-
+Next, df2markov organizes the data into meaningful sequential patterns. By creating transition matrices, df2markov can create a transition probability matrix: the likelihood of transitioning between any two states (get_probability_matrices()), but is also able to visualize the transitions (plot()):
 
 Convert to common graphic formats:
 ```
 dot -Tpng 1_markov_topic.dot > 1_markov_topic.png
 ```
 
+### Aggregate sequential patterns:
+Finally, df2markov is able to aggregate the data from all users in the data set to create an overall (a) percentage matrix (0-100 percent), (b) probability matrix (0-1), or (c) frequency matrix.  
 
 ## Citation
 
