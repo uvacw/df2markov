@@ -103,6 +103,28 @@ class Markov():
             S = np.matrix.round(S, 3)
             self.prob_transition_matrices[user] = S
 
+    def aggregate(self, how = 'percentage'):
+        LOGGER.info('Currently aggregating the probability transition matrix for all respondents')
+     
+        aggregate_matrix = np.zeros((self.number_of_states, self.number_of_states))
+
+
+        if how == 'percentage':
+            for i,j in np.ndindex(aggregate_matrix.shape):
+                aggregate_matrix[i,j] = np.mean([matrix[i,j] for matrix in self.prob_transition_matrices.values()]) * 100
+
+        elif how == 'probability':
+            for i,j in np.ndindex(aggregate_matrix.shape):
+                aggregate_matrix[i,j] = np.mean([matrix[i,j] for matrix in self.prob_transition_matrices.values()])
+
+        elif how == 'frequency':
+           for i,j in np.ndindex(aggregate_matrix.shape):
+                aggregate_matrix[i,j] = np.sum([matrix[i,j] for matrix in self.transition_matrices.values()])
+        else:
+            LOGGER.error('You need to specify the aggregation function as "percentage", "probability", or "frequency"')
+            
+        return aggregate_matrix
+
 
 SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
                                     "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
