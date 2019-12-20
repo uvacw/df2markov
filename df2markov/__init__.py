@@ -74,8 +74,8 @@ class Markov():
         nx.draw_networkx(G, pos)
         edge_labels = {(n1, n2):d['label'] for n1, n2, d in G.edges(data=True)}
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-        if not os.path.exists(outputdir):
-            os.mkdir(outputdir)
+        if not os.path.exists(outputdirectory):
+            os.mkdir(outputdirectory)
         filename = os.path.join(outputdirectory, '{}_probabilities.dot'.format(user))
         self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(G, filename)
 
@@ -95,14 +95,19 @@ class Markov():
             self.prob_transition_matrices[user] = S
 
 
-SAMPLEDATA = pd.DataFrame({'user': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                    1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
-                                    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                    3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
-                                    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                    5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
-                                    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                                    7, 7, 7, 8, 8, 8, 8, 8],
+SAMPLEDATA = pd.DataFrame({'user': [Anna, Anna, Anna, Anna, Anna, Anna, Anna, Anna,
+                                    Anna, Anna, Anna, Anna, Anna, Anna, Anna, Anna,
+                                    Anna, Anna, Anna, Anna, Bob, Bob, Bob, Bob, Bob,
+                                    Bob, Bob, Bob, Paul, Paul, Paul, Paul, Paul, Paul,
+                                    Paul, Paul, Paul, Paul, Paul, Paul, Paul, Paul,
+                                    Paul, Paul, Paul, Paul, Paul, Paul, Karen, Karen,
+                                    Karen, Karen, Karen, Eric, Eric, Eric, Eric, Eric,
+                                    Eric, Eric, Eric, Eric, Eric, Eric, Eric, Eric,
+                                    Eric, Eric, Eric, Eric, Eric, Eric, Eric, Judith,
+                                    Judith, Judith, Judith, Judith, Judith, Judith,
+                                    Judith, Tim, Tim, Tim, Tim, Tim, Tim, Tim, Tim, Tim,
+                                    Tim, Tim, Tim, Tim, Tim, Tim, Tim, Tim, Tim, Tim,
+                                    Tim, Sandra, Sandra, Sandra, Sandra, Sandra],
                            'session': [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                                        2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2,
                                        1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
