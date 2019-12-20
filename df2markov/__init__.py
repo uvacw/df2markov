@@ -19,13 +19,22 @@ LOGGER = logging.getLogger(__name__)
 class Markov():
     '''some docstring'''
     def __init__(self, df, state_col="state", date_col="date", user_col="user",
-                 session_col="session"):
+                 session_col="session", sort=True):
         self.number_of_states = df[state_col].nunique()
 
         self.transition_matrices = {}
 
         self.states = df[state_col].unique()
 
+        if sort:      
+            df = df.sort_values(by=[date_col])
+
+        else:
+            LOGGER.info('You specified that you do *not* want to let df2markov sort the '
+                        'date column. We hope that you know what you are doing and made '
+                        'sure that the column is in chronological order. '
+                        'Otherwise, the results will be wrong.')
+                
         for user, group in df.groupby(user_col):
 
             S = [[0]*self.number_of_states for _ in range(self.number_of_states)]
