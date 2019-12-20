@@ -5,13 +5,14 @@ import pandas as pd
 import numpy as np
 import logging
 import networkx as nx
-import pydot # TODO: heeft dot nodig,  is lastig op macos,  even checken
+import pydot
+import os
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 # TODO : sessie optioneel maken
-# TODO : dot testen
+
 # TODO : setup.py opzetten,  docstrings,  pylint
 
 
@@ -45,7 +46,7 @@ class Markov():
             self.transition_matrices[user] = S
 
 
-    def plot(self, path, user):
+    def plot(self, outputdirectory, user):
         q_df = pd.DataFrame(columns=self.states, index=self.states)
 
         count = 0
@@ -56,8 +57,6 @@ class Markov():
 
 
         q = q_df.values
-        #print('\n', q, q.shape, '\n')
-        #print(q_df.sum(axis=1))
         def _get_markov_edges(Q):
             edges = {}
             for col in Q.columns:
@@ -65,18 +64,20 @@ class Markov():
                     edges[(idx, col)] = Q.loc[idx, col]
             return edges
         edges_wts = _get_markov_edges(q_df)
-        #pprint(edges_wts)
         G = nx.MultiDiGraph()
         G.add_nodes_from(self.states)
         for k, v in edges_wts.items():
             tmp_origin, tmp_destination = k[0], k[1]
-            G.add_edge(tmp_origin, tmp_destination, weight=v, label=v)
-        #pprint(G.edges(data=True))
+            if v>0:
+                G.add_edge(tmp_origin, tmp_destination, weight=v, label=v)
         pos = nx.drawing.nx_pydot.graphviz_layout(G, prog='dot')
         nx.draw_networkx(G, pos)
         edge_labels = {(n1, n2):d['label'] for n1, n2, d in G.edges(data=True)}
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-        self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(G, user + '_markov_topic.dot')
+        if not os.path.exists(outputdir):
+            os.mkdir(outputdir)
+        filename = os.path.join(outputdirectory, '{}_probabilities.dot'.format(user))
+        self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(G, filename)
 
     def get_probability_matrices(self):
         self.prob_transition_matrices = {}
@@ -93,10 +94,6 @@ class Markov():
             S = np.matrix.round(S, 3)
             self.prob_transition_matrices[user] = S
 
-def create_chain(df, state_col="state", date_col="date", user_col="user"):
-    '''
-    Takes ... as input and returns ....
-    '''
 
 SAMPLEDATA = pd.DataFrame({'user': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                                     1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
