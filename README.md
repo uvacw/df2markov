@@ -67,7 +67,7 @@ mymodel.get_probability_matrices()
 
 It is also able to visualize the transitions:
 ```
-mymodel.plot(outputdirectory='/path/to/store/output', user='anna')      
+mymodel.plot(outputdirectory='/path/to/store/output', user='Anna')      
 ```
 
 Convert to common graphic formats:
