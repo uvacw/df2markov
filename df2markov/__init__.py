@@ -49,6 +49,7 @@ class Markov():
         self.transition_matrices = {}
 
         self.states = df[state_col].unique()
+        self.states = sorted(self.states)
 
         if sort:
             df = df.sort_values(by=[timestamp_col])
