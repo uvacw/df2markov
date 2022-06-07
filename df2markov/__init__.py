@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 import pydot
+from itertools import product
 
 
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +51,6 @@ class Markov():
 
         self.states = df[state_col].unique()
         self.states = sorted(self.states)
-
         if sort:
             df = df.sort_values(by=[timestamp_col])
 
@@ -80,10 +80,11 @@ class Markov():
             self.transition_matrices[user] = matrix_states
 
 
-    def plot(self, outputdirectory, user):
+    def plot(self, outputdirectory, user=None):
         '''
         Creates a dot file with a graphic representation of transition
-        probabilities for a given user.
+        probabilities. By default plots the aggregate, this can be changed by
+        specifying a username. 
 
         Parameters
         ----------
@@ -97,7 +98,12 @@ class Markov():
         count = 0
 
         while count < self.number_of_states:
-            states_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
+            if user:
+                states_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
+            else: 
+                states_df.loc[self.states[count]] = np.round(self.aggregate(how="probability")[count], 2)
+                count += 1
+
             count += 1
 
         #q = states_df.values
@@ -113,14 +119,18 @@ class Markov():
         for k, weight in edges_wts.items():
             tmp_origin, tmp_destination = k[0], k[1]
             if weight > 0:
-                graph_object.add_edge(tmp_origin, tmp_destination, weight=weight, label=weight)
+                graph_object.add_edge(tmp_origin, tmp_destination, weight=weight, label=weight, penwidth = weight*10)
         pos = nx.drawing.nx_pydot.graphviz_layout(graph_object, prog='dot')
         nx.draw_networkx(graph_object, pos)
         edge_labels = {(n1, n2):d['label'] for n1, n2, d in graph_object.edges(data=True)}
         nx.draw_networkx_edge_labels(graph_object, pos, edge_labels=edge_labels)
         if not os.path.exists(outputdirectory):
             os.mkdir(outputdirectory)
-        filename = os.path.join(outputdirectory, '{}_probabilities.dot'.format(user))
+        if user:
+            filename = os.path.join(outputdirectory, '{}_probabilities.dot'.format(user))
+        else: 
+            filename = os.path.join(outputdirectory, 'aggregate_probabilities.dot')
+
         self.draw_markov_chain = nx.drawing.nx_pydot.write_dot(graph_object, filename)
 
     def get_probability_matrices(self):
@@ -178,6 +188,29 @@ class Markov():
             LOGGER.error('You need to specify the aggregation function as "percentage"'
                          ", 'probability', or 'frequency'")
         return aggregate_matrix
+
+    def flatten_dataframe(self):
+        '''
+        Flattens the dataframe. Useful to preserve the distribution of each transition
+        across users. 
+
+        Returns
+        -------
+        A datafrfame where one row is one user and one column is a combination of states. This
+        means that e.g. with 6 states and 6 users a dataframe with 36 columns (state combinations)
+        and 6 rows (one for each user) is returned.
+
+        '''
+        list_of_dfs = []
+        names = ['_'.join(state) for state in product(self.states, repeat=2)]
+        for u,m in self.prob_transition_matrices.items():
+            df = pd.DataFrame([m.flatten()])
+            df.columns = names
+            df.insert(0,'user',[u])
+            list_of_dfs.append(df)
+        flattened_df = pd.concat(list_of_dfs)
+        flattened_df.reset_index(drop = True, inplace = True)
+        return flattened_df
 
 SAMPLEDATA = pd.DataFrame({'user': ["Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
                                     "Anna", "Anna", "Anna", "Anna", "Anna", "Anna",
