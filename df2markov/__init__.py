@@ -102,8 +102,6 @@ class Markov():
                 states_df.loc[self.states[count]] = self.prob_transition_matrices[user][count]
             else: 
                 states_df.loc[self.states[count]] = np.round(self.aggregate(how="probability")[count], 2)
-                count += 1
-
             count += 1
 
         #q = states_df.values
@@ -119,7 +117,7 @@ class Markov():
         for k, weight in edges_wts.items():
             tmp_origin, tmp_destination = k[0], k[1]
             if weight > 0:
-                graph_object.add_edge(tmp_origin, tmp_destination, weight=weight, label=weight, penwidth = weight*10)
+                graph_object.add_edge(tmp_origin, tmp_destination, weight=weight, label=weight, penwidth = weight*5)
         pos = nx.drawing.nx_pydot.graphviz_layout(graph_object, prog='dot')
         nx.draw_networkx(graph_object, pos)
         edge_labels = {(n1, n2):d['label'] for n1, n2, d in graph_object.edges(data=True)}
